@@ -48,6 +48,8 @@ Feature: display configuration inside a non-TTY environment
       Propose:
         breadcrumb: none
         breadcrumb direction: down
+        fork stack: no
+        fork stack label: (not set)
 
       Ship:
         delete tracking branch: yes

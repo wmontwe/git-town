@@ -63,6 +63,8 @@ func TestSave(t *testing.T) {
 				}),
 				FeatureRegex:                featureRegex,
 				ForgeType:                   asserts.NoError1(forgedomain.ParseForgeType("github", "test")),
+				ForkStack:                   Some(configdomain.ForkStack(true)),
+				ForkStackLabel:              Some(configdomain.ForkStackLabel("stacked-change")),
 				GithubConnectorType:         Some(forgedomain.GithubConnectorTypeGh),
 				GitlabConnectorType:         Some(forgedomain.GitlabConnectorTypeGlab),
 				HostingOriginHostname:       configdomain.ParseHostingOriginHostname("forge"),
@@ -124,6 +126,8 @@ origin-hostname = "forge"
 [propose]
 breadcrumb = "branches"
 breadcrumb-direction = "up"
+fork-stack = true
+fork-stack-label = "stacked-change"
 
 [ship]
 delete-tracking-branch = true

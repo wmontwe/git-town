@@ -34,6 +34,8 @@ type PartialConfig struct {
 	FeatureRegex                Option[FeatureRegex]
 	ForgeType                   Option[forgedomain.ForgeType]
 	ForgejoToken                Option[forgedomain.ForgejoToken]
+	ForkStack                   Option[ForkStack]
+	ForkStackLabel              Option[ForkStackLabel]
 	GitUserEmail                Option[gitdomain.GitUserEmail]
 	GitUserName                 Option[gitdomain.GitUserName]
 	GiteaToken                  Option[forgedomain.GiteaToken]
@@ -98,6 +100,8 @@ func (self PartialConfig) Merge(other PartialConfig) PartialConfig {
 		FeatureRegex:                other.FeatureRegex.Or(self.FeatureRegex),
 		ForgeType:                   other.ForgeType.Or(self.ForgeType),
 		ForgejoToken:                other.ForgejoToken.Or(self.ForgejoToken),
+		ForkStack:                   other.ForkStack.Or(self.ForkStack),
+		ForkStackLabel:              other.ForkStackLabel.Or(self.ForkStackLabel),
 		GitUserEmail:                other.GitUserEmail.Or(self.GitUserEmail),
 		GitUserName:                 other.GitUserName.Or(self.GitUserName),
 		GiteaToken:                  other.GiteaToken.Or(self.GiteaToken),

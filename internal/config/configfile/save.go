@@ -147,15 +147,23 @@ func RenderTOML(data configdomain.PartialConfig) string {
 		// keep-sorted end
 	}
 
+	forkStack, hasForkStack := data.ForkStack.Get()
+	forkStackLabel, hasForkStackLabel := data.ForkStackLabel.Get()
 	proposalBreadcrumb, hasProposalBreadcrumb := data.ProposalBreadcrumb.Get()
 	proposalBreadcrumbDirection, hasProposalBreadcrumbDirection := data.ProposalBreadcrumbDirection.Get()
-	if hasProposalBreadcrumb || hasProposalBreadcrumbDirection {
+	if hasForkStack || hasForkStackLabel || hasProposalBreadcrumb || hasProposalBreadcrumbDirection {
 		result.WriteString("\n[propose]\n")
 		if hasProposalBreadcrumb {
 			result.WriteString(fmt.Sprintf("breadcrumb = %q\n", proposalBreadcrumb))
 		}
 		if hasProposalBreadcrumbDirection {
 			result.WriteString(fmt.Sprintf("breadcrumb-direction = %q\n", proposalBreadcrumbDirection))
+		}
+		if hasForkStack {
+			result.WriteString(fmt.Sprintf("fork-stack = %t\n", forkStack))
+		}
+		if hasForkStackLabel {
+			result.WriteString(fmt.Sprintf("fork-stack-label = %q\n", forkStackLabel))
 		}
 	}
 

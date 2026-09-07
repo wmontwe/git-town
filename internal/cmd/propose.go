@@ -16,6 +16,7 @@ import (
 	"github.com/git-town/git-town/v24/internal/config/configdomain"
 	"github.com/git-town/git-town/v24/internal/execute"
 	"github.com/git-town/git-town/v24/internal/forge/forgedomain"
+	"github.com/git-town/git-town/v24/internal/forkstack"
 	"github.com/git-town/git-town/v24/internal/git/gitdomain"
 	"github.com/git-town/git-town/v24/internal/messages"
 	"github.com/git-town/git-town/v24/internal/proposallineage"
@@ -195,6 +196,7 @@ type proposeData struct {
 	config              config.ValidatedConfig
 	connector           Option[forgedomain.Connector]
 	detectedForgeType   Option[forgedomain.DetectedForgeType]
+	forkStackBranches   gitdomain.LocalBranchNames
 	hasOpenChanges      bool
 	initialBranch       gitdomain.LocalBranchName
 	inputs              dialogcomponents.Inputs
@@ -291,8 +293,12 @@ func determineProposeData(repo execute.OpenRepoResult, args proposeArgs) (propos
 	perennialAndMain := branchesAndTypes.BranchesOfTypes(configdomain.BranchTypePerennialBranch, configdomain.BranchTypeMainBranch)
 	var branchNamesToPropose gitdomain.LocalBranchNames
 	var branchNamesToSync gitdomain.LocalBranchNames
-	if args.stack {
-		branchNamesToSync = validatedConfig.NormalConfig.Lineage.BranchLineageWithoutRoot(initialBranch, perennialAndMain, validatedConfig.NormalConfig.Order)
+	if bool(args.stack) {
+		branchOrder := validatedConfig.NormalConfig.Order
+		if validatedConfig.NormalConfig.ForkStack {
+			branchOrder = configdomain.OrderAsc
+		}
+		branchNamesToSync = validatedConfig.NormalConfig.Lineage.BranchLineageWithoutRoot(initialBranch, perennialAndMain, branchOrder)
 		branchNamesToPropose = make(gitdomain.LocalBranchNames, len(branchNamesToSync))
 		copy(branchNamesToPropose, branchNamesToSync)
 	} else {
@@ -301,6 +307,10 @@ func determineProposeData(repo execute.OpenRepoResult, args proposeArgs) (propos
 		if err = validateBranchTypeToPropose(branchesAndTypes[initialBranch]); err != nil {
 			return emptyResult, configdomain.ProgramFlowExit, err
 		}
+	}
+	forkStackBranches := gitdomain.LocalBranchNames{}
+	if validatedConfig.NormalConfig.ForkStack {
+		forkStackBranches = branchNamesToSync
 	}
 	branchesToPropose := []branchToProposeData{}
 	for _, branchNameToPropose := range branchNamesToPropose {
@@ -333,6 +343,7 @@ func determineProposeData(repo execute.OpenRepoResult, args proposeArgs) (propos
 		config:              validatedConfig,
 		connector:           connectorOpt,
 		detectedForgeType:   detectedForgeType,
+		forkStackBranches:   forkStackBranches,
 		hasOpenChanges:      repoStatus.OpenChanges,
 		initialBranch:       initialBranch,
 		inputs:              inputs,
@@ -362,6 +373,21 @@ func proposeProgram(repo execute.OpenRepoResult, data proposeData) program.Progr
 		Prune:               false,
 		PushBranches:        true,
 	})
+	branchNamesToPropose := make(gitdomain.LocalBranchNames, 0, len(data.branchesToPropose))
+	forkStackLayers := []forkstack.Layer{}
+	if data.config.NormalConfig.ForkStack {
+		for _, branch := range data.forkStackBranches {
+			switch data.config.BranchType(branch) {
+			case configdomain.BranchTypeFeatureBranch, configdomain.BranchTypeParkedBranch, configdomain.BranchTypePrototypeBranch:
+			case configdomain.BranchTypeContributionBranch, configdomain.BranchTypeMainBranch, configdomain.BranchTypeObservedBranch, configdomain.BranchTypePerennialBranch:
+				continue
+			}
+			logicalBase, hasLogicalBase := data.config.NormalConfig.Lineage.Parent(branch).Get()
+			if hasLogicalBase {
+				forkStackLayers = append(forkStackLayers, forkstack.Layer{Branch: branch, LogicalBase: logicalBase})
+			}
+		}
+	}
 	for _, branchToPropose := range data.branchesToPropose {
 		if branchToPropose.syncStatus == gitdomain.SyncStatusDeletedAtRemote {
 			repo.FinalMessages.Addf(messages.BranchDeletedAtRemote, branchToPropose.name)
@@ -378,10 +404,15 @@ func proposeProgram(repo execute.OpenRepoResult, data proposeData) program.Progr
 		case configdomain.BranchTypeContributionBranch, configdomain.BranchTypeMainBranch, configdomain.BranchTypeObservedBranch, configdomain.BranchTypePerennialBranch:
 			continue
 		}
+		branchNamesToPropose = append(branchNamesToPropose, branchToPropose.name)
 		prog.Value.Add(&opcodes.BranchTrackingCreateIfNeeded{
 			CurrentBranch: branchToPropose.name,
 		})
 		prog.Value.Add(&opcodes.CheckoutIfNeeded{Branch: branchToPropose.name})
+		if data.config.NormalConfig.ForkStack {
+			prog.Value.Add(&opcodes.ProgramEndOfBranch{})
+			continue
+		}
 		updateBreadcrumb := data.config.NormalConfig.ProposalBreadcrumb.Enabled()
 		proposalBody := data.proposalBody
 		if updateBreadcrumb {
@@ -405,6 +436,20 @@ func proposeProgram(repo execute.OpenRepoResult, data proposeData) program.Progr
 			ProposalTitle: data.proposalTitle,
 		})
 		prog.Value.Add(&opcodes.ProgramEndOfBranch{})
+	}
+	if data.config.NormalConfig.ForkStack && len(forkStackLayers) > 0 {
+		if devURL, hasDevURL := data.config.NormalConfig.DevURL(repo.Backend).Get(); hasDevURL {
+			prog.Value.Add(&opcodes.ForkStackProposalCreate{
+				BranchesToPropose: branchNamesToPropose,
+				ForkRepository:    forgedomain.HostedRepoInfo{Hostname: devURL.Host, Organization: devURL.Org, Repository: devURL.Repo},
+				Label:             data.config.NormalConfig.ForkStackLabel,
+				Layers:            forkStackLayers,
+				MainBranch:        data.config.ValidatedConfigData.MainBranch,
+				ProposalBody:      data.proposalBody,
+				ProposalTitle:     data.proposalTitle,
+				SelectedBranch:    data.initialBranch,
+			})
+		}
 	}
 	previousBranchCandidates := []Option[gitdomain.LocalBranchName]{data.previousBranch}
 	cmdhelpers.Wrap(prog, cmdhelpers.WrapOptions{

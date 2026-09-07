@@ -9,6 +9,7 @@ import (
 	"github.com/git-town/git-town/v24/internal/git/gitdomain"
 	"github.com/git-town/git-town/v24/internal/gohacks"
 	"github.com/git-town/git-town/v24/internal/gohacks/stringss"
+	. "github.com/git-town/git-town/v24/pkg/prelude"
 )
 
 const (
@@ -162,6 +163,8 @@ func Load(env EnvVars) (configdomain.PartialConfig, error) {
 		DryRun:                      dryRun,
 		FeatureRegex:                featureRegex,
 		ForgeType:                   forgeType,
+		ForkStack:                   None[configdomain.ForkStack](),
+		ForkStackLabel:              None[configdomain.ForkStackLabel](),
 		GithubConnectorType:         githubConnectorType,
 		GithubToken:                 forgedomain.ParseGithubToken(env.Get(githubToken, "GITHUB_TOKEN", "GITHUB_AUTH_TOKEN")),
 		GitlabConnectorType:         gitlabConnectorType,

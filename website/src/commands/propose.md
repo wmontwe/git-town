@@ -16,6 +16,16 @@ mode.
 
 Proposing prototype and parked branches makes them feature branches.
 
+When [`propose.fork-stack`](../preferences/fork-stack.md) is enabled,
+this command proposes the current branch
+as a cumulative pull request from the configured development fork into the
+upstream repository.
+Use `--stack` to propose all branches in the stack explicitly.
+Logical parentage is maintained in every pull request description.
+Descriptions for non-root pull requests also link to the commits to review.
+When `propose.fork-stack-label` is configured,
+Git Town adds that GitHub label to every pull request except the stack root.
+
 You can create pull requests for repositories hosted on:
 
 - [Bitbucket](https://bitbucket.org)

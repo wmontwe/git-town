@@ -38,6 +38,8 @@ func Load() configdomain.PartialConfig {
 		FeatureRegex:                None[configdomain.FeatureRegex](),
 		ForgeType:                   None[forgedomain.ForgeType](),
 		ForgejoToken:                None[forgedomain.ForgejoToken](),
+		ForkStack:                   None[configdomain.ForkStack](),
+		ForkStackLabel:              None[configdomain.ForkStackLabel](),
 		GitUserEmail:                None[gitdomain.GitUserEmail](),
 		GitUserName:                 None[gitdomain.GitUserName](),
 		GiteaToken:                  None[forgedomain.GiteaToken](),

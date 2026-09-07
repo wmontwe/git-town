@@ -16,6 +16,7 @@ import (
 	"github.com/git-town/git-town/v24/internal/config/configdomain"
 	"github.com/git-town/git-town/v24/internal/execute"
 	"github.com/git-town/git-town/v24/internal/forge/forgedomain"
+	"github.com/git-town/git-town/v24/internal/forkstack"
 	"github.com/git-town/git-town/v24/internal/git/gitdomain"
 	"github.com/git-town/git-town/v24/internal/messages"
 	"github.com/git-town/git-town/v24/internal/programs"
@@ -197,6 +198,24 @@ Start:
 			Program:         runProgram,
 			TouchedBranches: touchedBranches,
 		})
+	}
+	if bool(data.config.NormalConfig.ForkStack) && isOnline {
+		forkStackLayers := []forkstack.Layer{}
+		featureBranches := data.config.BranchesOfType(data.branchesToSync.BranchNames(), configdomain.BranchTypeFeatureBranch)
+		featureBranches = data.config.NormalConfig.Lineage.OrderHierarchically(featureBranches, configdomain.OrderAsc)
+		for _, branch := range featureBranches {
+			logicalBase, hasLogicalBase := data.config.NormalConfig.Lineage.Parent(branch).Get()
+			if hasLogicalBase {
+				forkStackLayers = append(forkStackLayers, forkstack.Layer{Branch: branch, LogicalBase: logicalBase})
+			}
+		}
+		if devURL, hasDevURL := data.config.NormalConfig.DevURL(repo.Backend).Get(); hasDevURL && len(forkStackLayers) > 0 {
+			runProgram.Value.Add(&opcodes.ForkStackProposalUpdate{
+				ForkRepository: forgedomain.HostedRepoInfo{Hostname: devURL.Host, Organization: devURL.Org, Repository: devURL.Repo},
+				Label:          data.config.NormalConfig.ForkStackLabel,
+				Layers:         forkStackLayers,
+			})
+		}
 	}
 
 	cmdhelpers.Wrap(runProgram, cmdhelpers.WrapOptions{

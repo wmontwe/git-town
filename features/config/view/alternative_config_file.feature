@@ -54,6 +54,8 @@ Feature: show the configuration when using an alternative config file
       Propose:
         breadcrumb: none
         breadcrumb direction: down
+        fork stack: no
+        fork stack label: (not set)
 
       Ship:
         delete tracking branch: yes

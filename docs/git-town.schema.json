@@ -149,6 +149,12 @@
         "breadcrumb-direction": {
           "type": "string"
         },
+        "fork-stack": {
+          "type": "boolean"
+        },
+        "fork-stack-label": {
+          "type": "string"
+        },
         "lineage": {
           "type": "string"
         }

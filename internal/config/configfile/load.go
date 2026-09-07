@@ -60,6 +60,8 @@ func Validate(data Data, finalMessages stringslice.Collector) (configdomain.Part
 		displayTypes                Option[configdomain.DisplayTypes]
 		featureRegex                Option[configdomain.FeatureRegex]
 		forgeType                   Option[forgedomain.ForgeType]
+		forkStack                   Option[configdomain.ForkStack]
+		forkStackLabel              Option[configdomain.ForkStackLabel]
 		githubConnectorType         Option[forgedomain.GithubConnectorType]
 		gitlabConnectorType         Option[forgedomain.GitlabConnectorType]
 		hostingOriginHostname       Option[configdomain.HostingOriginHostname]
@@ -231,6 +233,12 @@ func Validate(data Data, finalMessages stringslice.Collector) (configdomain.Part
 			proposalBreadcrumbDirection, err = configdomain.ParseProposalBreadcrumbDirection(stringss.Trim(*data.Propose.BreadcrumbDirection), messages.ConfigFile)
 			ec.Check(err)
 		}
+		if data.Propose.ForkStack != nil {
+			forkStack = Some(configdomain.ForkStack(*data.Propose.ForkStack))
+		}
+		if data.Propose.ForkStackLabel != nil {
+			forkStackLabel = configdomain.NewForkStackLabel(stringss.Trim(*data.Propose.ForkStackLabel))
+		}
 	}
 	if data.Ship != nil {
 		if data.Ship.DeleteTrackingBranch != nil {
@@ -313,6 +321,8 @@ func Validate(data Data, finalMessages stringslice.Collector) (configdomain.Part
 		DevRemote:                   devRemote,
 		FeatureRegex:                featureRegex,
 		ForgeType:                   forgeType,
+		ForkStack:                   forkStack,
+		ForkStackLabel:              forkStackLabel,
 		GithubConnectorType:         githubConnectorType,
 		GithubToken:                 None[forgedomain.GithubToken](),
 		GitlabConnectorType:         gitlabConnectorType,

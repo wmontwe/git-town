@@ -70,6 +70,8 @@ Feature: show the configuration in Spanish
       Propose:
         breadcrumb: none
         breadcrumb direction: down
+        fork stack: no
+        fork stack label: (not set)
 
       Ship:
         delete tracking branch: yes

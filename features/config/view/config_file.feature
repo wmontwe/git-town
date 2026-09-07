@@ -42,6 +42,8 @@ Feature: display information from config file
 
       [propose]
       breadcrumb = "stacks"
+      fork-stack = true
+      fork-stack-label = "stacked-change"
 
       [ship]
       delete-tracking-branch = true
@@ -105,6 +107,8 @@ Feature: display information from config file
       Propose:
         breadcrumb: stacks
         breadcrumb direction: down
+        fork stack: yes
+        fork stack label: stacked-change
 
       Ship:
         delete tracking branch: yes

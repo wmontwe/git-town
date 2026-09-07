@@ -33,6 +33,8 @@ forge-type = "" # auto-detect
 [propose]
 breadcrumb = "none"
 breadcrumb-direction = "down"
+fork-stack = false
+fork-stack-label = ""
 
 [ship]
 delete-tracking-branch = true

@@ -47,6 +47,8 @@ type NormalConfig struct {
 	FeatureRegex                Option[configdomain.FeatureRegex]
 	ForgeType                   Option[forgedomain.ForgeType] // None = auto-detect
 	ForgejoToken                Option[forgedomain.ForgejoToken]
+	ForkStack                   configdomain.ForkStack
+	ForkStackLabel              Option[configdomain.ForkStackLabel]
 	GitUserEmail                Option[gitdomain.GitUserEmail]
 	GitUserName                 Option[gitdomain.GitUserName]
 	GiteaToken                  Option[forgedomain.GiteaToken]
@@ -120,6 +122,8 @@ func (self *NormalConfig) OverwriteWith(other configdomain.PartialConfig) Normal
 		FeatureRegex:                other.FeatureRegex.Or(self.FeatureRegex),
 		ForgeType:                   other.ForgeType.Or(self.ForgeType),
 		ForgejoToken:                other.ForgejoToken.Or(self.ForgejoToken),
+		ForkStack:                   other.ForkStack.GetOr(self.ForkStack),
+		ForkStackLabel:              other.ForkStackLabel.Or(self.ForkStackLabel),
 		GitUserEmail:                other.GitUserEmail.Or(self.GitUserEmail),
 		GitUserName:                 other.GitUserName.Or(self.GitUserName),
 		GiteaToken:                  other.GiteaToken.Or(self.GiteaToken),
@@ -279,6 +283,8 @@ func DefaultNormalConfig() NormalConfig {
 		FeatureRegex:                None[configdomain.FeatureRegex](),
 		ForgeType:                   None[forgedomain.ForgeType](),
 		ForgejoToken:                None[forgedomain.ForgejoToken](),
+		ForkStack:                   false,
+		ForkStackLabel:              None[configdomain.ForkStackLabel](),
 		GitUserEmail:                None[gitdomain.GitUserEmail](),
 		GitUserName:                 None[gitdomain.GitUserName](),
 		GiteaToken:                  None[forgedomain.GiteaToken](),
@@ -336,6 +342,8 @@ func NewNormalConfigFromPartial(partial configdomain.PartialConfig, defaults Nor
 		FeatureRegex:                partial.FeatureRegex,
 		ForgeType:                   partial.ForgeType,
 		ForgejoToken:                partial.ForgejoToken,
+		ForkStack:                   partial.ForkStack.GetOr(defaults.ForkStack),
+		ForkStackLabel:              partial.ForkStackLabel,
 		GitUserEmail:                partial.GitUserEmail,
 		GitUserName:                 partial.GitUserName,
 		GiteaToken:                  partial.GiteaToken,

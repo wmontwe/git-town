@@ -78,6 +78,8 @@ Feature: display configuration from Git metadata in detached head state
       Propose:
         breadcrumb: branches
         breadcrumb direction: down
+        fork stack: no
+        fork stack label: (not set)
 
       Ship:
         delete tracking branch: yes

@@ -23,6 +23,8 @@ before the sync by running [git town undo](undo.md).
 - safely stashes away uncommitted changes and restores them when done
 - does not pull, push, or merge depending on the configured
   [branch type](../branch-types.md)
+- refreshes commit-review links in affected non-root pull requests when
+  [`propose.fork-stack`](../preferences/fork-stack.md) is enabled
 
 If the parent branch is not known,
 Git Town looks for a pull/merge request for this branch

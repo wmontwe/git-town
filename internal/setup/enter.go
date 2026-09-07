@@ -311,6 +311,8 @@ EnterForgeData:
 		DryRun:                      None[configdomain.DryRun](), // the setup assistant doesn't ask for this
 		FeatureRegex:                featureRegex,
 		ForgeType:                   enteredForgeType,
+		ForkStack:                   None[configdomain.ForkStack](),
+		ForkStackLabel:              None[configdomain.ForkStackLabel](),
 		GithubConnectorType:         githubConnectorTypeOpt,
 		GithubToken:                 githubToken,
 		GitlabConnectorType:         gitlabConnectorTypeOpt,

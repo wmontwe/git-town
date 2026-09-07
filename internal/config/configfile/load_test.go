@@ -59,6 +59,8 @@ origin-hostname = "github.com"
 [propose]
 breadcrumb = "stacks"
 breadcrumb-direction = "up"
+fork-stack = true
+fork-stack-label = "stacked-change"
 
 [ship]
 delete-tracking-branch = false
@@ -112,6 +114,9 @@ upstream = true
 				Propose: &configfile.Propose{
 					Breadcrumb:          new("stacks"),
 					BreadcrumbDirection: new("up"),
+					ForkStack:           new(true),
+					ForkStackLabel:      new("stacked-change"),
+					Lineage:             nil,
 				},
 				Ship: &configfile.Ship{
 					DeleteTrackingBranch: new(false),
@@ -165,6 +170,8 @@ upstream = true
 				FeatureRegex:                asserts.NoError1(configdomain.ParseFeatureRegex("^kg-", "test")),
 				ForgeType:                   asserts.NoError1(forgedomain.ParseForgeType("github", "test")),
 				ForgejoToken:                None[forgedomain.ForgejoToken](),
+				ForkStack:                   Some(configdomain.ForkStack(true)),
+				ForkStackLabel:              Some(configdomain.ForkStackLabel("stacked-change")),
 				GithubConnectorType:         Some(forgedomain.GithubConnectorTypeGh),
 				GithubToken:                 None[forgedomain.GithubToken](),
 				GitlabConnectorType:         Some(forgedomain.GitlabConnectorTypeGlab),

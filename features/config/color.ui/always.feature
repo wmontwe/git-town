@@ -79,6 +79,8 @@ Feature: show the configuration
       Propose:
         breadcrumb: stacks
         breadcrumb direction: down
+        fork stack: no
+        fork stack label: (not set)
 
       Ship:
         delete tracking branch: yes
@@ -185,6 +187,8 @@ Feature: show the configuration
       Propose:
         breadcrumb: stacks
         breadcrumb direction: down
+        fork stack: no
+        fork stack label: (not set)
 
       Ship:
         delete tracking branch: yes
@@ -316,6 +320,8 @@ Feature: show the configuration
       Propose:
         breadcrumb: branches
         breadcrumb direction: down
+        fork stack: no
+        fork stack label: (not set)
 
       Ship:
         delete tracking branch: no
@@ -391,6 +397,8 @@ Feature: show the configuration
       Propose:
         breadcrumb: none
         breadcrumb direction: down
+        fork stack: no
+        fork stack label: (not set)
 
       Ship:
         delete tracking branch: yes
@@ -472,6 +480,8 @@ Feature: show the configuration
       Propose:
         breadcrumb: none
         breadcrumb direction: down
+        fork stack: no
+        fork stack label: (not set)
 
       Ship:
         delete tracking branch: yes

@@ -98,6 +98,8 @@ Feature: display configuration defined in environment variables
       Propose:
         breadcrumb: stacks
         breadcrumb direction: up
+        fork stack: no
+        fork stack label: (not set)
 
       Ship:
         delete tracking branch: no

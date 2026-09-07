@@ -177,6 +177,8 @@ func NewPartialConfigFromSnapshot(snapshot configdomain.SingleSnapshot, updateOu
 		DryRun:                      None[configdomain.DryRun](),
 		FeatureRegex:                featureRegex,
 		ForgeType:                   forgeType,
+		ForkStack:                   None[configdomain.ForkStack](),
+		ForkStackLabel:              None[configdomain.ForkStackLabel](),
 		GithubConnectorType:         githubConnectorType,
 		GithubToken:                 load(snapshot, configdomain.KeyGithubToken, forgedomain.ParseGithubToken),
 		GitlabConnectorType:         gitlabConnectorType,
