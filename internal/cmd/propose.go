@@ -321,7 +321,7 @@ func determineProposeData(repo execute.OpenRepoResult, args proposeArgs) (propos
 	}
 	forkStackBranches := gitdomain.LocalBranchNames{}
 	if validatedConfig.NormalConfig.ForkStack {
-		forkStackBranches = branchNamesToSync
+		forkStackBranches = stackBranchesForPropose(validatedConfig.NormalConfig.Lineage, initialBranch, perennialAndMain, configdomain.OrderAsc)
 	}
 	branchesToPropose := []branchToProposeData{}
 	for _, branchNameToPropose := range branchNamesToPropose {

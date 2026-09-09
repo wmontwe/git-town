@@ -30,7 +30,7 @@ func TestForkStackManagedBlock(t *testing.T) {
 		{Message: "Add endpoint", SHA: "1111111111111111111111111111111111111111"},
 		{Message: "Document endpoint", SHA: "2222222222222222222222222222222222222222"},
 	}
-	have := forkStackManagedBlock(1, layers, pullRequests, commits)
+	have := forkStackManagedBlock(1, layers, pullRequests, commits, false)
 
 	must.StrContains(t, have, "[#10](https://github.com/upstream/project/pull/10)")
 	must.StrContains(t, have, "**[#11](https://github.com/upstream/project/pull/11) Feature API ← current**")
@@ -41,11 +41,43 @@ func TestForkStackManagedBlock(t *testing.T) {
 	must.StrContains(t, have, "[`1111111`](https://github.com/upstream/project/pull/11/commits/1111111111111111111111111111111111111111) Add endpoint")
 	must.StrContains(t, have, "[`2222222`](https://github.com/upstream/project/pull/11/commits/2222222222222222222222222222222222222222) Document endpoint")
 
-	rootBlock := forkStackManagedBlock(0, layers, pullRequests, commits)
+	rootBlock := forkStackManagedBlock(0, layers, pullRequests, commits, true)
 	must.StrNotContains(t, rootBlock, "View stack changes")
 	must.StrNotContains(t, rootBlock, "Commits to review")
 	must.StrNotContains(t, rootBlock, "/commits/")
 	must.StrNotContains(t, rootBlock, "This PR includes earlier stacked changes")
+}
+
+func TestForkStackVisibleStackForLayer(t *testing.T) {
+	t.Parallel()
+	layers := []Layer{
+		{Branch: "root", LogicalBase: "main"},
+		{Branch: "shared", LogicalBase: "root"},
+		{Branch: "left", LogicalBase: "shared"},
+		{Branch: "left-child", LogicalBase: "left"},
+		{Branch: "right", LogicalBase: "shared"},
+	}
+	pullRequests := []forkStackPullRequest{
+		{Number: 10},
+		{Number: 11},
+		{Number: 12},
+		{Number: 13},
+		{Number: 14},
+	}
+	layersByBranch := map[gitdomain.LocalBranchName]Layer{}
+	for _, layer := range layers {
+		layersByBranch[layer.Branch] = layer
+	}
+
+	sharedLayers, sharedPullRequests, sharedCurrent := visibleStackForLayer(layers[1], layers, pullRequests, layersByBranch)
+	leftLayers, leftPullRequests, leftCurrent := visibleStackForLayer(layers[2], layers, pullRequests, layersByBranch)
+
+	must.Eq(t, layers, sharedLayers)
+	must.Eq(t, pullRequests, sharedPullRequests)
+	must.EqOp(t, 1, sharedCurrent)
+	must.Eq(t, []Layer{layers[0], layers[1], layers[2], layers[3]}, leftLayers)
+	must.Eq(t, []forkStackPullRequest{pullRequests[0], pullRequests[1], pullRequests[2], pullRequests[3]}, leftPullRequests)
+	must.EqOp(t, 2, leftCurrent)
 }
 
 func TestForkStackProposalCreatesOnlySelectedBranches(t *testing.T) {
@@ -188,6 +220,55 @@ func TestForkStackProposalCreate(t *testing.T) {
 	must.StrContains(t, updatedBodies[1], "/pull/102/commits/3333333333333333333333333333333333333333")
 	must.StrNotContains(t, updatedBodies[1], "Template content")
 	must.StrNotContains(t, updatedBodies[1], "1111111111111111111111111111111111111111")
+}
+
+func TestForkStackRootListsPublishedLeaves(t *testing.T) {
+	t.Parallel()
+	updatedRootBody := ""
+	runner := forkstackrunner.Runner{QueryFunc: func(executable string, args ...string) (string, error) {
+		must.EqOp(t, "gh", executable)
+		endpoint := args[3]
+		switch {
+		case endpoint == "repos/fork-owner/project":
+			return `{"fork":true,"source":{"full_name":"upstream/project"}}`, nil
+		case endpoint == "repos/upstream/project":
+			return `{"default_branch":"main"}`, nil
+		case strings.Contains(endpoint, "/pulls?") && strings.Contains(endpoint, "feature-root"):
+			return `[{"number":100,"html_url":"https://github.com/upstream/project/pull/100","title":"Root","body":"","base":{"ref":"main"},"head":{"ref":"feature-root","repo":{"full_name":"fork-owner/project"}}}]`, nil
+		case strings.Contains(endpoint, "/pulls?") && strings.Contains(endpoint, "leaf-left"):
+			return `[{"number":101,"html_url":"https://github.com/upstream/project/pull/101","title":"Left","body":"","base":{"ref":"main"},"head":{"ref":"leaf-left","repo":{"full_name":"fork-owner/project"}}}]`, nil
+		case strings.Contains(endpoint, "/pulls?") && strings.Contains(endpoint, "leaf-right"):
+			return `[{"number":102,"html_url":"https://github.com/upstream/project/pull/102","title":"Right","body":"","base":{"ref":"main"},"head":{"ref":"leaf-right","repo":{"full_name":"fork-owner/project"}}}]`, nil
+		case endpoint == "repos/upstream/project/pulls/100":
+			for _, arg := range args {
+				if body, hasBody := strings.CutPrefix(arg, "body="); hasBody {
+					updatedRootBody = body
+				}
+			}
+			return `{}`, nil
+		default:
+			return "", fmt.Errorf("unexpected endpoint: %s", endpoint)
+		}
+	}}
+
+	err := Create(CreateArgs{
+		BranchesToPropose: gitdomain.LocalBranchNames{"feature-root"},
+		ForkRepository:    forgedomain.HostedRepoInfo{Hostname: "github.com", Organization: "fork-owner", Repository: "project"},
+		Label:             None[configdomain.ForkStackLabel](),
+		Layers: []Layer{
+			{Branch: "feature-root", LogicalBase: "main"},
+			{Branch: "leaf-left", LogicalBase: "feature-root"},
+			{Branch: "leaf-right", LogicalBase: "feature-root"},
+		},
+		MainBranch:     "main",
+		ProposalBody:   None[gitdomain.ProposalBody](),
+		ProposalTitle:  None[gitdomain.ProposalTitle](),
+		SelectedBranch: "feature-root",
+	}, runner, stringslice.NewCollector())
+
+	must.NoError(t, err)
+	must.StrContains(t, updatedRootBody, "[#101](https://github.com/upstream/project/pull/101) Left")
+	must.StrContains(t, updatedRootBody, "[#102](https://github.com/upstream/project/pull/102) Right")
 }
 
 func TestForkStackProposalUpdateDoesNotLoadTemplate(t *testing.T) {

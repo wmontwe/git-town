@@ -77,7 +77,8 @@ Enables or disables [interactive](../preferences/interactive.md) dialogs.
 #### `-s`<br>`--stack`
 
 The `--stack` aka `-s` parameter also creates proposals
-for review-ready descendant branches in the stack.
+for review-ready branches across the entire connected stack tree,
+including sibling leaves.
 It skips prototype branches other than the current branch
 and their subtrees to avoid publishing unfinished work implicitly.
 The current prototype branch is converted to a feature branch.

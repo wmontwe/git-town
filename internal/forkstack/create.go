@@ -62,28 +62,32 @@ func Create(self CreateArgs, backend subshelldomain.RunnerQuerier, finalMessages
 	layers := make([]Layer, 0, len(self.Layers))
 	pullRequests := make([]forkStackPullRequest, 0, len(self.Layers))
 	for _, layer := range self.Layers {
-		if layer.LogicalBase != self.MainBranch {
-			if _, err := backend.Query("git", "merge-base", "--is-ancestor", layer.LogicalBase.String(), layer.Branch.String()); err != nil {
-				return fmt.Errorf("logical parent %q is not an ancestor of %q; run git town sync --stack and retry", layer.LogicalBase, layer.Branch)
-			}
-		}
 		existing, err := self.findPullRequest(backend, upstreamSlug, forkSlug, layer.Branch)
 		if err != nil {
 			return err
 		}
+		shouldPropose := self.BranchesToPropose.Contains(layer.Branch)
 		if existing != nil {
-			if existing.Base.Ref != upstream.DefaultBranch {
-				if err := self.patchPullRequest(backend, upstreamSlug, existing.Number, "base", upstream.DefaultBranch); err != nil {
-					return fmt.Errorf("update base of pull request #%d: %w", existing.Number, err)
+			if shouldPropose {
+				if err := self.validateLogicalParent(backend, layer); err != nil {
+					return err
 				}
-				existing.Base.Ref = upstream.DefaultBranch
+				if existing.Base.Ref != upstream.DefaultBranch {
+					if err := self.patchPullRequest(backend, upstreamSlug, existing.Number, "base", upstream.DefaultBranch); err != nil {
+						return fmt.Errorf("update base of pull request #%d: %w", existing.Number, err)
+					}
+					existing.Base.Ref = upstream.DefaultBranch
+				}
 			}
 			layers = append(layers, layer)
 			pullRequests = append(pullRequests, *existing)
 			continue
 		}
-		if !self.BranchesToPropose.Contains(layer.Branch) {
+		if !shouldPropose {
 			continue
+		}
+		if err := self.validateLogicalParent(backend, layer); err != nil {
+			return err
 		}
 
 		title := self.pullRequestTitle(backend, layer)
@@ -109,31 +113,48 @@ func Create(self CreateArgs, backend subshelldomain.RunnerQuerier, finalMessages
 		pullRequests = append(pullRequests, created)
 	}
 
+	layersByBranch := make(map[gitdomain.LocalBranchName]Layer, len(layers))
+	branchesWithPullRequests := make(map[gitdomain.LocalBranchName]struct{}, len(layers))
+	for _, layer := range layers {
+		layersByBranch[layer.Branch] = layer
+		branchesWithPullRequests[layer.Branch] = struct{}{}
+	}
+	updatedPullRequests := make([]forkStackPullRequest, 0, len(self.BranchesToPropose))
 	for layerIndex, layer := range layers {
+		if !self.BranchesToPropose.Contains(layer.Branch) {
+			continue
+		}
+		isRoot := !hasOpenAncestor(layer, layersByBranch, branchesWithPullRequests)
 		if label, hasLabel := self.Label.Get(); hasLabel {
-			if layerIndex == 0 && pullRequestHasLabel(pullRequests[layerIndex], label) {
+			if isRoot && pullRequestHasLabel(pullRequests[layerIndex], label) {
 				if err := self.removePullRequestLabel(backend, upstreamSlug, pullRequests[layerIndex].Number, label); err != nil {
 					return fmt.Errorf("remove label from pull request #%d: %w", pullRequests[layerIndex].Number, err)
 				}
-			} else if layerIndex > 0 {
+			} else if !isRoot {
 				if err := self.addPullRequestLabel(backend, upstreamSlug, pullRequests[layerIndex].Number, label); err != nil {
 					return fmt.Errorf("label pull request #%d: %w", pullRequests[layerIndex].Number, err)
 				}
 			}
 		}
-		commits, err := commitsInLayer(backend, layer)
-		if err != nil {
-			return err
+		commits := gitdomain.Commits{}
+		if !isRoot {
+			var err error
+			commits, err = commitsInLayer(backend, layer)
+			if err != nil {
+				return err
+			}
 		}
-		block := forkStackManagedBlock(layerIndex, layers, pullRequests, commits)
+		visibleLayers, visiblePullRequests, visibleCurrent := visibleStackForLayer(layer, layers, pullRequests, layersByBranch)
+		block := forkStackManagedBlock(visibleCurrent, visibleLayers, visiblePullRequests, commits, isRoot)
 		body := replaceForkStackBlock(pullRequests[layerIndex].Body, block)
 		if err := self.patchPullRequest(backend, upstreamSlug, pullRequests[layerIndex].Number, "body", body); err != nil {
 			return fmt.Errorf("update body of pull request #%d: %w", pullRequests[layerIndex].Number, err)
 		}
+		updatedPullRequests = append(updatedPullRequests, pullRequests[layerIndex])
 	}
 
-	finalMessages.Addf("Created or updated fork-compatible logical stack with %d pull requests in %s; merge bottom-first", len(pullRequests), upstreamSlug)
-	for _, pullRequest := range pullRequests {
+	finalMessages.Addf("Created or updated fork-compatible logical stack with %d pull requests in %s; merge bottom-first", len(updatedPullRequests), upstreamSlug)
+	for _, pullRequest := range updatedPullRequests {
 		finalMessages.Add(pullRequest.HTMLURL)
 	}
 	return nil
@@ -143,6 +164,16 @@ func (self CreateArgs) addPullRequestLabel(backend subshelldomain.RunnerQuerier,
 	_, err := backend.Query("gh", "api", "--hostname", self.ForkRepository.HostnameWithStandardPort(),
 		"repos/"+upstreamSlug+fmt.Sprintf("/issues/%d/labels", number), "--method", "POST", "-f", "labels[]="+label.String())
 	return err
+}
+
+func (self CreateArgs) validateLogicalParent(backend subshelldomain.Querier, layer Layer) error {
+	if layer.LogicalBase == self.MainBranch {
+		return nil
+	}
+	if _, err := backend.Query("git", "merge-base", "--is-ancestor", layer.LogicalBase.String(), layer.Branch.String()); err != nil {
+		return fmt.Errorf("logical parent %q is not an ancestor of %q; run git town sync --stack and retry", layer.LogicalBase, layer.Branch)
+	}
+	return nil
 }
 
 func (self CreateArgs) createPullRequest(backend subshelldomain.RunnerQuerier, upstreamSlug, forkSlug, base string, branch gitdomain.LocalBranchName, title, body string) (forkStackPullRequest, error) {
@@ -208,7 +239,20 @@ func commitsInLayer(backend subshelldomain.Querier, layer Layer) (gitdomain.Comm
 	return result, nil
 }
 
-func forkStackManagedBlock(current int, layers []Layer, pullRequests []forkStackPullRequest, commits gitdomain.Commits) string {
+func branchIsAncestor(ancestor, descendant gitdomain.LocalBranchName, layersByBranch map[gitdomain.LocalBranchName]Layer) bool {
+	for {
+		descendantLayer, hasDescendantLayer := layersByBranch[descendant]
+		if !hasDescendantLayer {
+			return false
+		}
+		if descendantLayer.LogicalBase == ancestor {
+			return true
+		}
+		descendant = descendantLayer.LogicalBase
+	}
+}
+
+func forkStackManagedBlock(current int, layers []Layer, pullRequests []forkStackPullRequest, commits gitdomain.Commits, isRoot bool) string {
 	var result strings.Builder
 	result.WriteString(forkStackBlockStart + "\n### Stack\n\n")
 	for layerIndex, pullRequest := range pullRequests {
@@ -220,9 +264,29 @@ func forkStackManagedBlock(current int, layers []Layer, pullRequests []forkStack
 	}
 	logicalBase := layers[current].LogicalBase.String()
 	result.WriteString("\n<!-- git-town-fork-stack:logical-base=" + logicalBase + " -->\n")
-	result.WriteString(forkStackReviewSection(pullRequests[current].HTMLURL, commits, current == 0))
+	result.WriteString(forkStackReviewSection(pullRequests[current].HTMLURL, commits, isRoot))
 	result.WriteString("\n" + forkStackBlockEnd)
 	return result.String()
+}
+
+func visibleStackForLayer(currentLayer Layer, layers []Layer, pullRequests []forkStackPullRequest, layersByBranch map[gitdomain.LocalBranchName]Layer) ([]Layer, []forkStackPullRequest, int) {
+	visibleLayers := make([]Layer, 0, len(layers))
+	visiblePullRequests := make([]forkStackPullRequest, 0, len(pullRequests))
+	visibleCurrent := 0
+	for layerIndex, layer := range layers {
+		isVisible := layer.Branch == currentLayer.Branch ||
+			branchIsAncestor(layer.Branch, currentLayer.Branch, layersByBranch) ||
+			branchIsAncestor(currentLayer.Branch, layer.Branch, layersByBranch)
+		if !isVisible {
+			continue
+		}
+		if layer.Branch == currentLayer.Branch {
+			visibleCurrent = len(visibleLayers)
+		}
+		visibleLayers = append(visibleLayers, layer)
+		visiblePullRequests = append(visiblePullRequests, pullRequests[layerIndex])
+	}
+	return visibleLayers, visiblePullRequests, visibleCurrent
 }
 
 func forkStackReviewSection(pullRequestURL string, commits gitdomain.Commits, isRoot bool) string {

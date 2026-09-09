@@ -27,7 +27,11 @@ When `fork-stack` is enabled,
 [`git town propose`](../commands/propose.md) creates or updates pull requests
 for the current branch and all its ancestor branches.
 It does not automatically propose unfinished descendant branches.
-Use `git town propose --stack` to also propose review-ready descendants.
+Use `git town propose --stack` to also propose review-ready branches across the
+entire connected stack tree, including sibling leaves.
+Already-published pull requests from every leaf are available to managed stack
+lists, even when they are not selected for update.
+Unpublished branches are omitted and are not created implicitly.
 Git Town skips prototype branches other than the current branch
 and their subtrees so it does not publish unfinished work implicitly.
 If the current branch is a prototype,
@@ -44,7 +48,9 @@ Each pull request is cumulative because GitHub cannot use a branch from a fork
 as its base.
 
 Git Town maintains a section in each pull request description
-that lists all pull requests in the stack and records the logical parent.
+that records the logical parent and lists its open ancestors and descendants.
+A pull request at a branching point shows every published descendant path.
+A pull request after a split does not show sibling leaves.
 For every pull request after the stack root,
 the section also links to each commit to review
 and explains why the pull request includes earlier stacked changes.

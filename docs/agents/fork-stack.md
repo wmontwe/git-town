@@ -51,7 +51,10 @@ Fork-stack mode:
 - `git town propose` creates or updates pull requests for the current branch and
   all its ancestor branches in the stack.
 - It does not automatically propose unfinished descendant branches.
-- `git town propose --stack` also selects review-ready descendant branches.
+- `git town propose --stack` also selects review-ready branches across the
+  entire connected stack tree, including sibling leaves.
+- All already-published pull requests in the connected tree are available as
+  display context, even when they are not selected for creation or update.
 - A prototype branch other than the current branch and its entire subtree are
   excluded so unfinished work is not converted, pushed, or proposed implicitly.
 - If the current branch is a prototype, only that branch becomes a feature
@@ -69,6 +72,8 @@ fork.
 Closed and merged pull requests are not considered part of the open stack.
 Git Town reuses matching open pull requests
 and creates only the selected pull requests that do not exist yet.
+Unpublished context branches are omitted from the managed stack list
+and are not created implicitly.
 
 ### Pull request creation
 
@@ -98,9 +103,15 @@ User-authored content outside that section remains unchanged.
 
 Every managed section contains:
 
-- links to the open pull requests known for the stack
+- links to the open ancestor pull requests, the current pull request, and its
+  open descendant pull requests
 - a marker recording the branch's logical parent
 - an indication of which pull request is current
+
+A pull request at a branching point
+therefore shows every published descendant path and leaf.
+A pull request after a split shows only its own ancestor and descendant path,
+not sibling leaves.
 
 A non-root pull request additionally contains:
 
