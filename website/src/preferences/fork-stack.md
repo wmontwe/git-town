@@ -24,11 +24,17 @@ that pull request does not depend on another pull request in the stack.
 The default is empty, which disables labeling.
 
 When `fork-stack` is enabled,
-[`git town propose`](../commands/propose.md) creates or updates the pull request
-for the current branch.
-Use `git town propose --stack` to propose the entire stack explicitly.
-Open pull requests for ancestor branches remain in the managed stack section,
-while unfinished descendant branches are not proposed automatically.
+[`git town propose`](../commands/propose.md) creates or updates pull requests
+for the current branch and all its ancestor branches.
+It does not automatically propose unfinished descendant branches.
+Use `git town propose --stack` to also propose review-ready descendants.
+Git Town skips prototype branches other than the current branch
+and their subtrees so it does not publish unfinished work implicitly.
+If the current branch is a prototype,
+Git Town converts and proposes only that prototype.
+If the current branch depends on a prototype ancestor,
+Git Town aborts and asks you to convert the ancestor explicitly.
+Selected parked branches become feature branches and are proposed.
 
 Git Town pushes the selected branches to the configured
 [development remote](dev-remote.md),

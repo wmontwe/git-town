@@ -291,6 +291,11 @@ func determineProposeData(repo execute.OpenRepoResult, args proposeArgs) (propos
 		return emptyResult, configdomain.ProgramFlowExit, err
 	}
 	perennialAndMain := branchesAndTypes.BranchesOfTypes(configdomain.BranchTypePerennialBranch, configdomain.BranchTypeMainBranch)
+	if bool(args.stack) || bool(validatedConfig.NormalConfig.ForkStack) {
+		if ancestor, hasPrototypeAncestor := prototypeAncestor(initialBranch, branchesAndTypes, validatedConfig.NormalConfig.Lineage).Get(); hasPrototypeAncestor {
+			return emptyResult, configdomain.ProgramFlowExit, fmt.Errorf(messages.ProposalPrototypeAncestor, initialBranch, ancestor)
+		}
+	}
 	var branchNamesToPropose gitdomain.LocalBranchNames
 	var branchNamesToSync gitdomain.LocalBranchNames
 	if bool(args.stack) {
@@ -298,12 +303,18 @@ func determineProposeData(repo execute.OpenRepoResult, args proposeArgs) (propos
 		if validatedConfig.NormalConfig.ForkStack {
 			branchOrder = configdomain.OrderAsc
 		}
-		branchNamesToSync = validatedConfig.NormalConfig.Lineage.BranchLineageWithoutRoot(initialBranch, perennialAndMain, branchOrder)
+		stackBranches := stackBranchesForPropose(validatedConfig.NormalConfig.Lineage, initialBranch, perennialAndMain, branchOrder)
+		branchNamesToSync = branchesToProposeFromStack(stackBranches, initialBranch, branchesAndTypes, validatedConfig.NormalConfig.Lineage)
 		branchNamesToPropose = make(gitdomain.LocalBranchNames, len(branchNamesToSync))
 		copy(branchNamesToPropose, branchNamesToSync)
 	} else {
 		branchNamesToSync = validatedConfig.NormalConfig.Lineage.BranchAndAncestorsWithoutRoot(initialBranch)
-		branchNamesToPropose = gitdomain.LocalBranchNames{initialBranch}
+		if validatedConfig.NormalConfig.ForkStack {
+			branchNamesToPropose = make(gitdomain.LocalBranchNames, len(branchNamesToSync))
+			copy(branchNamesToPropose, branchNamesToSync)
+		} else {
+			branchNamesToPropose = gitdomain.LocalBranchNames{initialBranch}
+		}
 		if err = validateBranchTypeToPropose(branchesAndTypes[initialBranch]); err != nil {
 			return emptyResult, configdomain.ProgramFlowExit, err
 		}
@@ -460,6 +471,47 @@ func proposeProgram(repo execute.OpenRepoResult, data proposeData) program.Progr
 		PreviousBranchCandidates: previousBranchCandidates,
 	})
 	return optimizer.Optimize(prog.Immutable())
+}
+
+func branchesToProposeFromStack(branches gitdomain.LocalBranchNames, initialBranch gitdomain.LocalBranchName, branchesAndTypes configdomain.BranchesAndTypes, lineage configdomain.Lineage) gitdomain.LocalBranchNames {
+	prototypeBranchesToSkip := gitdomain.LocalBranchNames{}
+	for branch, branchType := range branchesAndTypes {
+		if branchType == configdomain.BranchTypePrototypeBranch && branch != initialBranch {
+			prototypeBranchesToSkip = append(prototypeBranchesToSkip, branch)
+		}
+	}
+	result := make(gitdomain.LocalBranchNames, 0, len(branches))
+	for _, branch := range branches {
+		isInSkippedPrototypeSubtree := false
+		for _, prototypeBranch := range prototypeBranchesToSkip {
+			if branch == prototypeBranch || lineage.IsAncestor(prototypeBranch, branch) {
+				isInSkippedPrototypeSubtree = true
+				break
+			}
+		}
+		if !isInSkippedPrototypeSubtree {
+			result = append(result, branch)
+		}
+	}
+	return result
+}
+
+func prototypeAncestor(branch gitdomain.LocalBranchName, branchesAndTypes configdomain.BranchesAndTypes, lineage configdomain.Lineage) Option[gitdomain.LocalBranchName] {
+	for _, ancestor := range lineage.AncestorsWithoutRoot(branch) {
+		if branchesAndTypes[ancestor] == configdomain.BranchTypePrototypeBranch {
+			return Some(ancestor)
+		}
+	}
+	return None[gitdomain.LocalBranchName]()
+}
+
+func stackBranchesForPropose(lineage configdomain.Lineage, initialBranch gitdomain.LocalBranchName, perennialAndMain gitdomain.LocalBranchNames, order configdomain.Order) gitdomain.LocalBranchNames {
+	currentLineage := lineage.BranchAndAncestorsWithoutRoot(initialBranch)
+	if len(currentLineage) == 0 {
+		return gitdomain.LocalBranchNames{}
+	}
+	stackRoot := currentLineage[0]
+	return lineage.BranchLineageWithoutRoot(stackRoot, perennialAndMain, order)
 }
 
 func validateBranchTypeToPropose(branchType configdomain.BranchType) error {

@@ -48,14 +48,17 @@ Fork-stack mode:
 
 ### Branch selection
 
-- `git town propose` creates or updates the pull request for the current branch.
+- `git town propose` creates or updates pull requests for the current branch and
+  all its ancestor branches in the stack.
 - It does not automatically propose unfinished descendant branches.
-- Existing open pull requests for ancestor branches can be included as stack
-  context.
-- `git town propose --stack` explicitly creates or updates pull requests for the
-  entire stack.
-- Prototype and parked branches selected for proposing become feature branches,
-  consistent with normal propose behavior.
+- `git town propose --stack` also selects review-ready descendant branches.
+- A prototype branch other than the current branch and its entire subtree are
+  excluded so unfinished work is not converted, pushed, or proposed implicitly.
+- If the current branch is a prototype, only that branch becomes a feature
+  branch and is proposed.
+- If the current branch depends on a prototype ancestor, Git Town aborts and
+  asks the user to convert that ancestor explicitly.
+- Selected parked branches become feature branches and are proposed.
 
 ### Pull request discovery
 

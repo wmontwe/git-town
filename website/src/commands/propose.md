@@ -17,10 +17,10 @@ mode.
 Proposing prototype and parked branches makes them feature branches.
 
 When [`propose.fork-stack`](../preferences/fork-stack.md) is enabled,
-this command proposes the current branch
-as a cumulative pull request from the configured development fork into the
+this command proposes the current branch and all its ancestors
+as cumulative pull requests from the configured development fork into the
 upstream repository.
-Use `--stack` to propose all branches in the stack explicitly.
+It does not propose descendant branches unless `--stack` is given.
 Logical parentage is maintained in every pull request description.
 Descriptions for non-root pull requests also link to the commits to review.
 When `propose.fork-stack-label` is configured,
@@ -76,8 +76,13 @@ Enables or disables [interactive](../preferences/interactive.md) dialogs.
 
 #### `-s`<br>`--stack`
 
-The `--stack` aka `-s` parameter creates proposals for all branches of the stack
-that the current branch belongs to.
+The `--stack` aka `-s` parameter also creates proposals
+for review-ready descendant branches in the stack.
+It skips prototype branches other than the current branch
+and their subtrees to avoid publishing unfinished work implicitly.
+The current prototype branch is converted to a feature branch.
+If the current branch has a prototype ancestor,
+the command aborts and asks you to convert that ancestor explicitly.
 
 #### `-t <text>`<br>`--title <text>`
 

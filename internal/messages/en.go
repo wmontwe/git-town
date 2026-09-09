@@ -267,6 +267,7 @@ Please upgrade to the new format: create.new-branch-type = "prototype"`
 	ProposalMultipleFromToFound             = "found %d proposals from branch %s to branch %s"
 	ProposalNoNumberGiven                   = "no proposal number given"
 	ProposalNoParent                        = "branch %s has no parent and can therefore not be proposed"
+	ProposalPrototypeAncestor               = "cannot propose branch %s because ancestor branch %s is a prototype; convert the ancestor to a feature branch explicitly first"
 	ProposalSourceCannotUpdate              = "cannot update the proposal source branch on your forge"
 	ProposalTargetBranchUpdateProblem       = "cannot update the target branch of proposal %d on your forge"
 	ProposalURLProblem                      = "cannot determine proposal URL from %s to %s: %w"
